@@ -1,0 +1,123 @@
+services:
+  devcontainer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: anvil-devcontainer
+    volumes:
+      - ..:/workspace:cached
+      - anvil-cargo-cache:/usr/local/cargo/registry
+      - anvil-target-cache:/workspace/target
+    command: sleep infinity
+    networks:
+      - anvil-network
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp:unconfined
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+      nanomq:
+        condition: service_healthy
+
+  timescaledb:
+    image: docker.io/timescale/timescaledb:latest-pg17
+    container_name: anvil-timescaledb
+    restart: always
+    environment:
+      - POSTGRES_DB=metrics
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=admin
+      - POSTGRES_HOST_AUTH_METHOD=trust
+      - POSTGRES_INITDB_ARGS=--auth-host=trust
+    ports:
+      - "5432:5432"
+    volumes:
+      - timescaledb-data:/var/lib/postgresql/data
+      - ../docker/postgres-init:/docker-entrypoint-initdb.d
+    command: postgres -c listen_addresses='*' -c log_statement=all
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d metrics && psql -U admin -d metrics -c 'SELECT 1'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - anvil-network
+
+  grafana:
+    image: docker.io/grafana/grafana-enterprise:12.0.1-security-01-ubuntu
+    container_name: anvil-grafana
+    restart: always
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+    environment:
+      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_FEATURE_TOGGLES_ENABLE=alertingSimplifiedRouting,alertingQueryAndExpressionsStepMode
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_DATASOURCE_NAME=TimescaleDB
+      - GF_DATABASE_TYPE=postgres
+      - GF_DATABASE_HOST=timescaledb
+      - GF_DATABASE_PORT=5432
+      - GF_DATABASE_NAME=metrics
+      - GF_DATABASE_USER=admin
+      - GF_DATABASE_PASSWORD=admin
+      - GF_DATABASE_SSL_MODE=disable
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ../docker/grafana/provisioning:/etc/grafana/provisioning
+    ports:
+      - "0.0.0.0:3000:3000"
+    networks:
+      - anvil-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  nanomq:
+    build:
+      context: ../docker/nanomq
+      dockerfile: Dockerfile.nanomq
+    container_name: anvil-nanomq
+    restart: always
+    ports:
+      - "1883:1883"
+      - "8083:8083"
+      - "8081:8081"
+    environment:
+      - NANOMQ_BROKER_URL=nmq-tcp://0.0.0.0:1883
+      - NANOMQ_WEBSOCKET_ENABLE=true
+      - NANOMQ_WEBSOCKET_URL=nmq-ws://0.0.0.0:8083/mqtt
+      - NANOMQ_HTTP_SERVER_ENABLE=true
+      - NANOMQ_HTTP_SERVER_PORT=8081
+      - NANOMQ_ALLOW_ANONYMOUS=true
+    networks:
+      - anvil-network
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 1883 || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+networks:
+  anvil-network:
+    driver: bridge
+
+volumes:
+  anvil-cargo-cache:
+    name: anvil-cargo-cache
+  anvil-target-cache:
+    name: anvil-target-cache
+  grafana-data:
+    name: anvil-grafana-data
+  timescaledb-data:
+    name: anvil-timescaledb-data
