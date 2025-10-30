@@ -20,6 +20,8 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 toml = "0.8"
 colored = "2.1"
+serde_yaml = "0.9"
+regex = "1.10"
 
 [profile.release]
 opt-level = 3
