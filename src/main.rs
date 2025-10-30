@@ -4,10 +4,11 @@ use colored::Colorize;
 
 mod config;
 mod db;
+mod mapping;
 mod mqtt;
-mod parser;
 
 use config::Config;
+use mapping::MappingConfig;
 
 #[derive(Parser)]
 #[command(name = "anvil")]
@@ -25,6 +26,10 @@ enum Commands {
         /// Path to configuration file
         #[arg(short, long, default_value = "anvil.toml")]
         config: String,
+
+        /// Path to mappings file
+        #[arg(short, long, default_value = "mappings.yaml")]
+        mappings: String,
 
         /// MQTT broker host
         #[arg(long)]
@@ -62,11 +67,12 @@ async fn main() -> Result<()> {
     match cli.command {
         Commands::Start {
             config,
+            mappings,
             mqtt_host,
             mqtt_port,
             db_url,
         } => {
-            start_bridge(config, mqtt_host, mqtt_port, db_url).await?;
+            start_bridge(config, mappings, mqtt_host, mqtt_port, db_url).await?;
         }
         Commands::Config { output } => {
             generate_config(&output)?;
@@ -78,6 +84,7 @@ async fn main() -> Result<()> {
 
 async fn start_bridge(
     config_path: String,
+    mappings_path: String,
     mqtt_host_override: Option<String>,
     mqtt_port_override: Option<u16>,
     db_url_override: Option<String>,
@@ -115,12 +122,29 @@ async fn start_bridge(
     }
     println!();
 
+    // Load mappings
+    let mappings = MappingConfig::load(&mappings_path)?;
+    println!(
+        "{} {} mappings",
+        "✓ Loaded mappings:".green(),
+        mappings.mappings.len().to_string().yellow()
+    );
+    for mapping in &mappings.mappings {
+        println!(
+            "  {} {} → {}",
+            "→".dimmed(),
+            mapping.name.cyan(),
+            mapping.table.cyan()
+        );
+    }
+    println!();
+
     // Initialize database connection
     let db_client = db::connect(&config.database.url).await?;
     println!("{}", "✓ Connected to TimescaleDB".green());
 
     // Initialize MQTT client
-    let mqtt_bridge = mqtt::MqttBridge::new(config.mqtt.clone(), db_client).await?;
+    let mqtt_bridge = mqtt::MqttBridge::new(config.mqtt.clone(), db_client, mappings).await?;
     println!("{}", "✓ Connected to MQTT broker".green());
     println!();
 
@@ -148,8 +172,22 @@ fn generate_config(output_path: &str) -> Result<()> {
         "✓ Configuration file generated:".green(),
         output_path.cyan()
     );
+
+    // Also generate default mappings.yaml
+    let mappings_path = "mappings.yaml";
+    let default_mappings = MappingConfig::default();
+    let yaml_string = serde_yaml::to_string(&default_mappings)?;
+
+    std::fs::write(mappings_path, yaml_string)?;
+
+    println!(
+        "{} {}",
+        "✓ Mappings file generated:".green(),
+        mappings_path.cyan()
+    );
+
     println!();
-    println!("Edit the file and then run:");
+    println!("Edit the files and then run:");
     println!("  {}", "anvil start".yellow());
 
     Ok(())

@@ -4,16 +4,21 @@ use tokio_postgres::Client as PgClient;
 use tracing::{debug, error, info};
 
 use crate::config::MqttConfig;
-use crate::parser::{parse_message, ParsedMessage};
+use crate::mapping::MappingConfig;
 
 pub struct MqttBridge {
     _client: AsyncClient,
     eventloop: EventLoop,
     db_client: PgClient,
+    mappings: MappingConfig,
 }
 
 impl MqttBridge {
-    pub async fn new(config: MqttConfig, db_client: PgClient) -> Result<Self> {
+    pub async fn new(
+        config: MqttConfig,
+        db_client: PgClient,
+        mappings: MappingConfig,
+    ) -> Result<Self> {
         let mut mqttoptions = MqttOptions::new(&config.client_id, &config.host, config.port);
         mqttoptions.set_keep_alive(std::time::Duration::from_secs(30));
         mqttoptions.set_clean_session(true);
@@ -39,6 +44,7 @@ impl MqttBridge {
             _client: client,
             eventloop,
             db_client,
+            mappings,
         })
     }
 
@@ -88,14 +94,16 @@ impl MqttBridge {
                 // Log at debug level only
                 debug!("Received message on topic: {}", topic);
 
-                // Parse the message
-                let parsed_messages = parse_message(topic, payload);
-
-                // Insert into database
-                for message in parsed_messages {
-                    if let Err(e) = self.insert_message(message).await {
-                        error!("Failed to insert message: {}", e);
-                    }
+                // Execute mappings and insert into database
+                if let Err(e) = crate::mapping::execute_mappings(
+                    topic,
+                    payload,
+                    &self.mappings,
+                    &self.db_client,
+                )
+                .await
+                {
+                    error!("Failed to execute mappings: {}", e);
                 }
             }
             Event::Incoming(Packet::ConnAck(_)) => {
@@ -109,19 +117,6 @@ impl MqttBridge {
             }
             Event::Outgoing(_) => {
                 // Ignore outgoing packets
-            }
-        }
-
-        Ok(())
-    }
-
-    async fn insert_message(&self, message: ParsedMessage) -> Result<()> {
-        match message {
-            ParsedMessage::TelemetryReading(reading) => {
-                reading.insert(&self.db_client).await?;
-            }
-            ParsedMessage::RawMessage(msg) => {
-                msg.insert(&self.db_client).await?;
             }
         }
 

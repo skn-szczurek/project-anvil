@@ -1,0 +1,115 @@
+# Anvil Telemetry Bridge - Message Mappings Configuration
+# This file defines how MQTT messages are parsed and mapped to database tables
+
+mappings:
+  # Example 1: Organ Bath Telemetry - Expands flat JSON into multiple rows
+  - name: organ_bath_telemetry
+    topic_pattern: device/organ_bath/+
+    table: telemetry
+    mode: insert
+
+    # Define how to extract/map individual fields
+    fields:
+      device_id:
+        source: topic
+        extract: device/organ_bath/(.+)  # Regex to extract from topic
+        target: device_id
+        type: string
+        default: unknown
+
+      timestamp:
+        source: json
+        path: timestamp  # JSONPath to extract from payload
+        type: timestamp
+        default: now  # Use current time if not present
+
+      topic:
+        source: topic  # Use the full topic string
+        target: topic
+        type: string
+
+    # Expand numeric fields into separate rows
+    # Example: {"temperature": 80, "ph": 2.4} becomes 2 rows
+    expand_numeric_fields:
+      enabled: true
+      exclude:  # Fields to skip during expansion
+        - timestamp
+        - device_id
+        - ts
+      sensor_name_from: sensor_name  # Column for the JSON key
+      value_from: value              # Column for the JSON value
+      include_fields:                # Fields to include in each expanded row
+        - device_id
+        - timestamp
+        - topic
+
+  # Example 2: Specific sensor with fixed fields (no expansion)
+  # - name: temperature_sensor
+  #   topic_pattern: sensor/+/data
+  #   table: sensor_data
+  #   mode: upsert
+  #   key: sensor_id  # Upsert based on this key
+  #
+  #   fields:
+  #     sensor_id:
+  #       source: topic
+  #       extract: sensor/(.+)/data
+  #       type: string
+  #
+  #     temperature:
+  #       source: json
+  #       path: temp
+  #       type: number
+  #
+  #     humidity:
+  #       source: json
+  #       path: hum
+  #       type: number
+  #
+  #     location:
+  #       source: json
+  #       path: metadata.location  # Nested JSON path
+  #       type: string
+  #       default: unknown
+  #
+  #     timestamp:
+  #       source: current_time
+  #       type: timestamp
+
+  # Example 3: Debug messages stored as-is
+  # - name: debug_messages
+  #   topic_pattern: debug/#
+  #   table: raw_messages
+  #   mode: insert
+  #
+  #   fields:
+  #     topic:
+  #       source: topic
+  #       type: string
+  #
+  #     payload:
+  #       source: json
+  #       path: .  # Use entire payload
+  #       type: string
+  #
+  #     timestamp:
+  #       source: current_time
+  #       type: timestamp
+
+# Field Source Options:
+#   - json: Extract from JSON payload using 'path'
+#   - topic: Extract from MQTT topic using 'extract' regex
+#   - current_time: Use current timestamp
+#   - constant: Use fixed value from 'value'
+
+# Field Type Options:
+#   - string: Text data
+#   - number: Floating point
+#   - integer: Whole numbers
+#   - boolean: true/false
+#   - timestamp: Date/time (ISO8601, Unix timestamp, or "now")
+
+# Insert Mode Options:
+#   - insert: Always insert new row
+#   - upsert: Insert or update based on 'key' field
+#   - update: Only update existing rows
