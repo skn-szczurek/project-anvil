@@ -1,0 +1,24 @@
+apiVersion: 1
+datasources:
+  - name: TimescaleDB
+    uid: timescaledb
+    type: postgres
+    access: proxy
+    orgId: 1
+    url: timescaledb:5432
+    database: metrics
+    user: admin
+    password: admin
+    jsonData:
+      sslmode: disable
+      postgresVersion: 1700  # Updated for latest TimescaleDB
+      timescaledb: true
+      maxOpenConns: 100      # Connection pool settings
+      maxIdleConns: 100
+      connMaxLifetime: 14400
+    secureJsonData:
+      password: admin        # Re-specified for clarity
+    basicAuth: false
+    isDefault: true
+    version: 1
+    editable: true

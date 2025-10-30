@@ -1,0 +1,12 @@
+[mqtt]
+host = "nanomq"
+port = 1883
+client_id = "anvil"
+topics = [
+    "device/organ_bath/ob1",
+    "debug/diagnostics/#",
+]
+qos = 0
+
+[database]
+url = "postgresql://admin:admin@timescaledb:5432/metrics"
