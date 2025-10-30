@@ -14,7 +14,11 @@ pub struct MqttBridge {
 }
 
 impl MqttBridge {
-    pub async fn new(config: MqttConfig, db_client: PgClient, mappings: MappingConfig) -> Result<Self> {
+    pub async fn new(
+        config: MqttConfig,
+        db_client: PgClient,
+        mappings: MappingConfig,
+    ) -> Result<Self> {
         let mut mqttoptions = MqttOptions::new(&config.client_id, &config.host, config.port);
         mqttoptions.set_keep_alive(std::time::Duration::from_secs(30));
         mqttoptions.set_clean_session(true);
@@ -95,8 +99,10 @@ impl MqttBridge {
                     topic,
                     payload,
                     &self.mappings,
-                    &self.db_client
-                ).await {
+                    &self.db_client,
+                )
+                .await
+                {
                     error!("Failed to execute mappings: {}", e);
                 }
             }

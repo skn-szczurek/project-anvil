@@ -101,10 +101,7 @@ async fn execute_expanded_mapping(
                 expand_config.sensor_name_from.clone(),
                 FieldValue::String(key.clone()),
             );
-            row_data.insert(
-                expand_config.value_from.clone(),
-                FieldValue::Number(num),
-            );
+            row_data.insert(expand_config.value_from.clone(), FieldValue::Number(num));
 
             // Insert the row
             insert_row(&mapping.table, &row_data, db_client).await?;
@@ -321,10 +318,7 @@ async fn insert_row(
 
     // Convert values to postgres types
     let mut params: Vec<&(dyn tokio_postgres::types::ToSql + Sync)> = Vec::new();
-    let values: Vec<_> = columns
-        .iter()
-        .map(|col| data.get(col).unwrap())
-        .collect();
+    let values: Vec<_> = columns.iter().map(|col| data.get(col).unwrap()).collect();
 
     // We need to hold these in memory for the lifetime of the query
     let string_values: Vec<String> = values

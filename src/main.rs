@@ -130,7 +130,12 @@ async fn start_bridge(
         mappings.mappings.len().to_string().yellow()
     );
     for mapping in &mappings.mappings {
-        println!("  {} {} → {}", "→".dimmed(), mapping.name.cyan(), mapping.table.cyan());
+        println!(
+            "  {} {} → {}",
+            "→".dimmed(),
+            mapping.name.cyan(),
+            mapping.table.cyan()
+        );
     }
     println!();
 

@@ -128,77 +128,85 @@ impl MappingConfig {
         let contents = std::fs::read_to_string(path)
             .with_context(|| format!("Failed to read mappings file: {}", path))?;
 
-        let config: MappingConfig = serde_yaml::from_str(&contents)
-            .with_context(|| "Failed to parse mappings YAML")?;
+        let config: MappingConfig =
+            serde_yaml::from_str(&contents).with_context(|| "Failed to parse mappings YAML")?;
 
         Ok(config)
     }
 
     /// Find a mapping that matches the given topic
     pub fn find_mapping(&self, topic: &str) -> Option<&TopicMapping> {
-        self.mappings.iter().find(|m| topic_matches(&m.topic_pattern, topic))
+        self.mappings
+            .iter()
+            .find(|m| topic_matches(&m.topic_pattern, topic))
     }
 }
 
 impl Default for MappingConfig {
     fn default() -> Self {
         Self {
-            mappings: vec![
-                TopicMapping {
-                    name: "organ_bath_telemetry".to_string(),
-                    topic_pattern: "device/organ_bath/+".to_string(),
-                    table: "telemetry".to_string(),
-                    mode: InsertMode::Insert,
-                    key: None,
-                    fields: {
-                        let mut fields = HashMap::new();
-                        fields.insert(
-                            "device_id".to_string(),
-                            FieldMapping {
-                                source: FieldSource::Topic,
-                                path: None,
-                                extract: Some(r"device/organ_bath/(.+)".to_string()),
-                                value: None,
-                                target: Some("device_id".to_string()),
-                                r#type: FieldType::String,
-                                default: Some("unknown".to_string()),
-                            },
-                        );
-                        fields.insert(
-                            "timestamp".to_string(),
-                            FieldMapping {
-                                source: FieldSource::Json,
-                                path: Some("timestamp".to_string()),
-                                extract: None,
-                                value: None,
-                                target: Some("timestamp".to_string()),
-                                r#type: FieldType::Timestamp,
-                                default: Some("now".to_string()),
-                            },
-                        );
-                        fields.insert(
-                            "topic".to_string(),
-                            FieldMapping {
-                                source: FieldSource::Topic,
-                                path: None,
-                                extract: None,
-                                value: None,
-                                target: Some("topic".to_string()),
-                                r#type: FieldType::String,
-                                default: None,
-                            },
-                        );
-                        fields
-                    },
-                    expand_numeric_fields: Some(ExpandConfig {
-                        enabled: true,
-                        exclude: vec!["timestamp".to_string(), "device_id".to_string(), "ts".to_string()],
-                        sensor_name_from: "sensor_name".to_string(),
-                        value_from: "value".to_string(),
-                        include_fields: vec!["device_id".to_string(), "timestamp".to_string(), "topic".to_string()],
-                    }),
+            mappings: vec![TopicMapping {
+                name: "organ_bath_telemetry".to_string(),
+                topic_pattern: "device/organ_bath/+".to_string(),
+                table: "telemetry".to_string(),
+                mode: InsertMode::Insert,
+                key: None,
+                fields: {
+                    let mut fields = HashMap::new();
+                    fields.insert(
+                        "device_id".to_string(),
+                        FieldMapping {
+                            source: FieldSource::Topic,
+                            path: None,
+                            extract: Some(r"device/organ_bath/(.+)".to_string()),
+                            value: None,
+                            target: Some("device_id".to_string()),
+                            r#type: FieldType::String,
+                            default: Some("unknown".to_string()),
+                        },
+                    );
+                    fields.insert(
+                        "timestamp".to_string(),
+                        FieldMapping {
+                            source: FieldSource::Json,
+                            path: Some("timestamp".to_string()),
+                            extract: None,
+                            value: None,
+                            target: Some("timestamp".to_string()),
+                            r#type: FieldType::Timestamp,
+                            default: Some("now".to_string()),
+                        },
+                    );
+                    fields.insert(
+                        "topic".to_string(),
+                        FieldMapping {
+                            source: FieldSource::Topic,
+                            path: None,
+                            extract: None,
+                            value: None,
+                            target: Some("topic".to_string()),
+                            r#type: FieldType::String,
+                            default: None,
+                        },
+                    );
+                    fields
                 },
-            ],
+                expand_numeric_fields: Some(ExpandConfig {
+                    enabled: true,
+                    exclude: vec![
+                        "timestamp".to_string(),
+                        "device_id".to_string(),
+                        "ts".to_string(),
+                    ],
+                    sensor_name_from: "sensor_name".to_string(),
+                    value_from: "value".to_string(),
+                    include_fields: vec![
+                        "device_id".to_string(),
+                        "timestamp".to_string(),
+                        "topic".to_string(),
+                    ],
+                }),
+            }],
         }
     }
 }
@@ -242,10 +250,16 @@ mod tests {
 
     #[test]
     fn test_topic_matching() {
-        assert!(topic_matches("device/organ_bath/+", "device/organ_bath/ob1"));
+        assert!(topic_matches(
+            "device/organ_bath/+",
+            "device/organ_bath/ob1"
+        ));
         assert!(topic_matches("device/+/status", "device/ob1/status"));
         assert!(topic_matches("device/#", "device/organ_bath/ob1/status"));
         assert!(!topic_matches("device/+/status", "device/ob1/data"));
-        assert!(!topic_matches("device/organ_bath/+", "device/organ_bath/ob1/extra"));
+        assert!(!topic_matches(
+            "device/organ_bath/+",
+            "device/organ_bath/ob1/extra"
+        ));
     }
 }
