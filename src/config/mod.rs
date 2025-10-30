@@ -29,10 +29,8 @@ impl Default for Config {
                 port: 1883,
                 client_id: "anvil".to_string(),
                 topics: vec![
-                    "test/telemetry".to_string(),
+                    "device/organ_bath/ob1".to_string(),
                     "debug/diagnostics/#".to_string(),
-                    "diagnostics/logs/+".to_string(),
-                    "telemetry/#".to_string(),
                 ],
                 qos: 0,
             },
