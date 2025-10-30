@@ -1,6 +1,28 @@
 [package]
-name = "project-anvil"
+name = "anvil"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
+authors = ["Connected Innovations LTD"]
+description = "Lightweight MQTT to TimescaleDB bridge for IoT telemetry"
+license = "MIT"
 
 [dependencies]
+tokio = { version = "1.42", features = ["full"] }
+rumqttc = "0.24"
+tokio-postgres = "0.7"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+clap = { version = "4.5", features = ["derive"] }
+anyhow = "1.0"
+chrono = { version = "0.4", features = ["serde"], default-features = false }
+postgres-types = { version = "0.2", features = ["with-chrono-0_4", "with-serde_json-1"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+toml = "0.8"
+colored = "2.1"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true

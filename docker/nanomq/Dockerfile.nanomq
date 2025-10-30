@@ -1,0 +1,52 @@
+FROM docker.io/emqx/nanomq:latest
+
+# Install tools for health checks
+RUN apk add --no-cache wget netcat-openbsd curl
+
+# Default MQTT port
+EXPOSE 1883
+# WebSocket port
+EXPOSE 8083
+# HTTP API port
+EXPOSE 8081
+
+# Create a proper minimal config file
+RUN mkdir -p /etc/nanomq && cat > /etc/nanomq.conf <<'EOF'
+# NanoMQ Configuration
+mqtt {
+    property_size = 32
+    max_packet_size = 10KB
+    max_mqueue_len = 2048
+    retry_interval = 10s
+    keepalive_multiplier = 1.25
+
+    # MQTT listeners
+    listener {
+        bind = "0.0.0.0:1883"
+        # Enable anonymous login
+        anonymous = true
+    }
+}
+
+# HTTP server
+http_server {
+    port = 8081
+    limit_conn = 32
+    username = admin
+    password = public
+}
+
+# WebSocket
+websocket {
+    enable = true
+    bind = "0.0.0.0:8083/mqtt"
+}
+
+log {
+    to = [console]
+    level = warn
+}
+EOF
+
+# Start NanoMQ with the config file
+CMD ["nanomq", "start", "--conf", "/etc/nanomq.conf"]
